@@ -499,14 +499,67 @@ async function fetchWithTimeout(url, ms) {
 
 async function fetchPrices(symbols) {
   if (!symbols.length) return {};
-  const q = encodeURIComponent(symbols.join(','));
-  const target = `https://query1.finance.yahoo.com/v8/finance/quote?symbols=${q}&lang=ja-JP`;
+  const stooq = await fetchFromStooq(symbols);
+  if (stooq) return stooq;
+  return await fetchFromYahoo(symbols);
+}
 
-  // Try multiple CORS proxies
+// Stooq symbol format: CEG -> ceg.us  /  4063.T -> 4063.jp
+function toStooqSym(sym) {
+  return sym.endsWith('.T')
+    ? sym.slice(0, -2).toLowerCase() + '.jp'
+    : sym.toLowerCase() + '.us';
+}
+
+async function fetchFromStooq(symbols) {
+  const batch = symbols.map(toStooqSym).join('+');
+  const base  = `https://stooq.com/q/l/?s=${batch}&f=sd2t2ohlcv&e=csv`;
   const attempts = [
-    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`, wrap: true },
+    { url: base, wrapped: false },
+    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(base)}`, wrapped: true },
+    { url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(base)}`, wrapped: false },
+  ];
+
+  for (const { url, wrapped } of attempts) {
+    try {
+      const res = await fetchWithTimeout(url, 12000);
+      if (!res.ok) continue;
+      const csvText = wrapped
+        ? (await res.json()).contents
+        : await res.text();
+
+      const out = {};
+      csvText.trim().split('\n').slice(1).forEach(line => {
+        const p = line.split(',');
+        // CSV columns: Symbol, Date, Time, Open, High, Low, Close, Volume
+        if (p.length < 7) return;
+        const price = parseFloat(p[6]);
+        const open  = parseFloat(p[3]);
+        if (!isFinite(price) || price <= 0) return;
+        const stooqKey = p[0].toUpperCase();
+        const origSym  = symbols.find(s => toStooqSym(s).toUpperCase() === stooqKey);
+        if (!origSym) return;
+        out[origSym] = {
+          price,
+          change: isFinite(open) ? price - open : 0,
+          pct:    (isFinite(open) && open > 0) ? ((price - open) / open) * 100 : 0,
+          prev:   isFinite(open) ? open : price,
+          cur:    origSym.endsWith('.T') ? 'JPY' : 'USD',
+        };
+      });
+
+      if (Object.keys(out).length) return out;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+async function fetchFromYahoo(symbols) {
+  const q      = encodeURIComponent(symbols.join(','));
+  const target = `https://query1.finance.yahoo.com/v8/finance/quote?symbols=${q}`;
+  const attempts = [
     { url: `https://corsproxy.io/?${encodeURIComponent(target)}`, wrap: false },
-    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(target.replace('query1','query2'))}`, wrap: true },
+    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`, wrap: true },
   ];
 
   for (const { url, wrap } of attempts) {
@@ -520,17 +573,17 @@ async function fetchPrices(symbols) {
       const out = {};
       results.forEach(q => {
         out[q.symbol] = {
-          price: q.regularMarketPrice,
+          price:  q.regularMarketPrice,
           change: q.regularMarketChange,
-          pct: q.regularMarketChangePercent,
-          prev: q.regularMarketPreviousClose,
-          cur: q.currency,
+          pct:    q.regularMarketChangePercent,
+          prev:   q.regularMarketPreviousClose,
+          cur:    q.currency,
         };
       });
       if (Object.keys(out).length) return out;
     } catch { /* try next */ }
   }
-  return null; // all failed
+  return null;
 }
 
 async function refreshAll() {
