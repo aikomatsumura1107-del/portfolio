@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>株式ポートフォリオ</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #7d8590;
+      --accent: #7c84f5;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+      font-size: 14px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .header h1 { font-size: 18px; font-weight: 700; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .last-updated { font-size: 11px; color: var(--muted); }
+
+    /* Summary cards */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .card-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin-bottom: 6px;
+    }
+    .card-value { font-size: 20px; font-weight: 700; line-height: 1.2; }
+    .card-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* Section */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title { font-size: 13px; font-weight: 600; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 640px; }
+    th {
+      padding: 8px 12px;
+      text-align: right;
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    th:first-child, th:last-child { text-align: left; }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: right;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    td:first-child { text-align: left; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.025); }
+
+    .sym { font-weight: 700; color: var(--accent); font-size: 13px; }
+    .sym-name { font-size: 10px; color: var(--muted); margin-top: 2px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-up { background: rgba(63,185,80,.15); color: var(--green); }
+    .badge-dn { background: rgba(248,81,73,.15); color: var(--red); }
+    .up { color: var(--green); }
+    .dn { color: var(--red); }
+    .muted { color: var(--muted); }
+
+    .act-row { display: flex; gap: 4px; justify-content: flex-start; }
+
+    /* Watchlist */
+    .wl-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .wl-row:last-child { border-bottom: none; }
+    .wl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow); flex-shrink: 0; }
+    .wl-info { flex: 1; min-width: 0; }
+    .wl-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .wl-note { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .wl-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+    /* Buttons */
+    .btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: opacity .15s;
+      font-family: inherit;
+    }
+    .btn:hover { opacity: .8; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger { background: var(--red); color: #fff; }
+    .btn-sm { padding: 3px 8px; font-size: 12px; }
+    .btn-icon {
+      padding: 4px 7px;
+      font-size: 13px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: color .15s;
+      line-height: 1;
+    }
+    .btn-icon:hover { color: var(--text); }
+
+    /* Overlay / Modal */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.65);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 460px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+    }
+    .modal-title { font-size: 14px; font-weight: 600; }
+    .modal-close { background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; line-height: 1; padding: 0 2px; }
+    .modal-close:hover { color: var(--text); }
+    .modal-body { padding: 16px 18px; }
+    .modal-foot {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      padding: 12px 18px 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Form */
+    .fg { margin-bottom: 12px; }
+    .fg:last-child { margin-bottom: 0; }
+    label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+    label small { font-weight: 400; }
+    input[type=text], input[type=number], textarea {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
+    .fg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* Note display */
+    .note-block {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      z-index: 200;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: all .22s;
+      max-width: 320px;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { display: inline-block; animation: spin .7s linear infinite; }
+
+    /* Error banner */
+    .err-banner {
+      background: rgba(248,81,73,.1);
+      border: 1px solid rgba(248,81,73,.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: #f85149;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .err-banner.show { display: block; }
+
+    /* Mobile */
+    @media (max-width: 580px) {
+      body { padding: 10px; }
+      .fg-row { grid-template-columns: 1fr; }
+      .card-value { font-size: 17px; }
+      .wl-actions { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📈 株式ポートフォリオ</h1>
+  <div class="header-right">
+    <span class="last-updated" id="lastUpdated"></span>
+    <button class="btn btn-ghost btn-sm" id="refreshBtn" onclick="refreshAll()">↻ 更新</button>
+  </div>
+</div>
+
+<div class="err-banner" id="errBanner">
+  株価の自動取得に失敗しました。ネットワークを確認するか、しばらくしてから「↻ 更新」を押してください。
+</div>
+
+<!-- Summary -->
+<div class="summary">
+  <div class="card">
+    <div class="card-label">USD 評価額</div>
+    <div class="card-value" id="sumUSD">--</div>
+    <div class="card-sub" id="sumUSDpnl">&nbsp;</div>
+  </div>
+  <div class="card">
+    <div class="card-label">JPY 評価額</div>
+    <div class="card-value" id="sumJPY">--</div>
+    <div class="card-sub" id="sumJPYpnl">&nbsp;</div>
+  </div>
+  <div class="card">
+    <div class="card-label">本日の損益 (USD)</div>
+    <div class="card-value" id="sumDayUSD">--</div>
+    <div class="card-sub">米国株・ETF</div>
+  </div>
+  <div class="card">
+    <div class="card-label">本日の損益 (JPY)</div>
+    <div class="card-value" id="sumDayJPY">--</div>
+    <div class="card-sub">日本株</div>
+  </div>
+</div>
+
+<!-- Holdings -->
+<div class="section">
+  <div class="section-head">
+    <span class="section-title">保有銘柄</span>
+    <button class="btn btn-primary btn-sm" onclick="openAdd('h')">＋ 追加</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>銘柄</th>
+          <th>現在値</th>
+          <th>前日比</th>
+          <th>保有数</th>
+          <th>取得単価</th>
+          <th>評価額</th>
+          <th>損益</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="holdBody">
+        <tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">読み込み中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Watchlist -->
+<div class="section">
+  <div class="section-head">
+    <span class="section-title">ウォッチリスト</span>
+    <button class="btn btn-primary btn-sm" onclick="openAdd('w')">＋ 追加</button>
+  </div>
+  <div id="watchBody">
+    <div style="text-align:center;color:var(--muted);padding:28px">読み込み中...</div>
+  </div>
+</div>
+
+<!-- ===== Edit Modal ===== -->
+<div class="overlay" id="editOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="editTitle">銘柄を追加</span>
+      <button class="modal-close" onclick="closeOverlay('editOverlay')">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="eId">
+      <input type="hidden" id="eType">
+      <div class="fg">
+        <label>ティッカーシンボル <small>（Yahoo Finance 形式）</small></label>
+        <input type="text" id="eSym" placeholder="例: CEG, 4063.T, QQQM" autocapitalize="characters" autocorrect="off">
+        <div class="hint">日本株は「4063.T」のように末尾に .T を付けてください</div>
+      </div>
+      <div class="fg">
+        <label>銘柄名</label>
+        <input type="text" id="eName" placeholder="例: Constellation Energy">
+      </div>
+      <div id="sharesFg">
+        <div class="fg fg-row">
+          <div>
+            <label>保有数量</label>
+            <input type="number" id="eShares" placeholder="0" min="0" step="any">
+          </div>
+          <div>
+            <label>取得単価</label>
+            <input type="number" id="eCost" placeholder="0" min="0" step="any">
+          </div>
+        </div>
+      </div>
+      <div class="fg">
+        <label>買った理由 / 投資テーマ</label>
+        <textarea id="eReason" placeholder="例: 原子力エネルギーの再評価、AI電力需要増加"></textarea>
+      </div>
+      <div class="fg">
+        <label>投資メモ</label>
+        <textarea id="eNote" placeholder="監視ポイント、懸念事項、目標株価など"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeOverlay('editOverlay')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveItem()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Notes Modal ===== -->
+<div class="overlay" id="notesOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title" id="notesTitle"></span>
+      <button class="modal-close" onclick="closeOverlay('notesOverlay')">×</button>
+    </div>
+    <div class="modal-body" id="notesBody"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeOverlay('notesOverlay')">閉じる</button>
+      <button class="btn btn-ghost" id="notesEditBtn">✏️ 編集</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Delete Modal ===== -->
+<div class="overlay" id="delOverlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-head">
+      <span class="modal-title">削除の確認</span>
+      <button class="modal-close" onclick="closeOverlay('delOverlay')">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="delText" style="line-height:1.6;font-size:13px"></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeOverlay('delOverlay')">キャンセル</button>
+      <button class="btn btn-danger" onclick="doDelete()">削除する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ===========================
+// Store
+// ===========================
+const STORE_KEY = 'portfolio_v3';
+
+const DEFAULTS = {
+  h: [
+    { id:1, sym:'CEG',    name:'Constellation Energy',   shares:0, cost:0, reason:'原子力エネルギーの再評価・AI電力需要の急増', note:'' },
+    { id:2, sym:'4063.T', name:'信越化学工業',             shares:0, cost:0, reason:'半導体向け素材のグローバルリーダー', note:'' },
+    { id:3, sym:'6383.T', name:'ダイフク',                 shares:0, cost:0, reason:'物流自動化・EC拡大の長期受益', note:'' },
+    { id:4, sym:'QQQM',   name:'Invesco NASDAQ 100 ETF',  shares:0, cost:0, reason:'ナスダック100への低コスト分散投資', note:'' },
+    { id:5, sym:'SPY',    name:'SPDR S&P500 ETF',          shares:0, cost:0, reason:'米国市場全体への長期インデックス投資', note:'' },
+  ],
+  w: [
+    { id:6, sym:'TLN', name:'Talen Energy', note:'検討中', reason:'CEGと同じ原子力セクター、バリュエーションを注視' }
+  ],
+  nextId: 10
+};
+
+let store = (() => {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || JSON.parse(JSON.stringify(DEFAULTS)); }
+  catch { return JSON.parse(JSON.stringify(DEFAULTS)); }
+})();
+
+let prices = {};
+let delTarget = null;
+let notesTarget = null;
+
+function saveStore() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {}
+}
+
+// ===========================
+// Price Fetching
+// ===========================
+async function fetchWithTimeout(url, ms) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
+    clearTimeout(tid);
+    return res;
+  } catch(e) {
+    clearTimeout(tid);
+    throw e;
+  }
+}
+
+async function fetchPrices(symbols) {
+  if (!symbols.length) return {};
+  const q = encodeURIComponent(symbols.join(','));
+  const target = `https://query1.finance.yahoo.com/v8/finance/quote?symbols=${q}&lang=ja-JP`;
+
+  // Try multiple CORS proxies
+  const attempts = [
+    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`, wrap: true },
+    { url: `https://corsproxy.io/?${encodeURIComponent(target)}`, wrap: false },
+    { url: `https://api.allorigins.win/get?url=${encodeURIComponent(target.replace('query1','query2'))}`, wrap: true },
+  ];
+
+  for (const { url, wrap } of attempts) {
+    try {
+      const res = await fetchWithTimeout(url, 12000);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const data = wrap ? JSON.parse(json.contents) : json;
+      const results = data?.quoteResponse?.result;
+      if (!results?.length) continue;
+      const out = {};
+      results.forEach(q => {
+        out[q.symbol] = {
+          price: q.regularMarketPrice,
+          change: q.regularMarketChange,
+          pct: q.regularMarketChangePercent,
+          prev: q.regularMarketPreviousClose,
+          cur: q.currency,
+        };
+      });
+      if (Object.keys(out).length) return out;
+    } catch { /* try next */ }
+  }
+  return null; // all failed
+}
+
+async function refreshAll() {
+  const btn = document.getElementById('refreshBtn');
+  btn.innerHTML = '<span class="spin">↻</span>';
+  btn.disabled = true;
+  document.getElementById('errBanner').classList.remove('show');
+
+  const syms = [...store.h.map(x => x.sym), ...store.w.map(x => x.sym)];
+  const got = await fetchPrices(syms);
+
+  if (got && Object.keys(got).length) {
+    Object.assign(prices, got);
+    const t = new Date();
+    document.getElementById('lastUpdated').textContent =
+      `更新: ${t.getHours()}:${String(t.getMinutes()).padStart(2,'0')}`;
+  } else {
+    document.getElementById('errBanner').classList.add('show');
+  }
+
+  render();
+  btn.innerHTML = '↻ 更新';
+  btn.disabled = false;
+}
+
+// ===========================
+// Formatting
+// ===========================
+const N = (n, d=2) =>
+  n == null || isNaN(n) ? '--'
+  : n.toLocaleString('ja-JP', { minimumFractionDigits:d, maximumFractionDigits:d });
+
+function money(n, cur) {
+  if (n == null || isNaN(n)) return '--';
+  return cur === 'JPY' ? `¥${N(n, 0)}` : `$${N(n)}`;
+}
+
+function badge(pct) {
+  if (pct == null) return '';
+  const cls = pct >= 0 ? 'badge-up' : 'badge-dn';
+  return `<span class="badge ${cls}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>`;
+}
+
+function pnlCell(pnl, pct, cur) {
+  if (pnl == null) return '<span class="muted">--</span>';
+  const cls = pnl >= 0 ? 'up' : 'dn';
+  const s = pnl >= 0 ? '+' : '';
+  return `<span class="${cls}">${s}${money(pnl, cur)}<br><small>${s}${pct?.toFixed(2)}%</small></span>`;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ===========================
+// Render
+// ===========================
+function render() {
+  renderHoldings();
+  renderWatchlist();
+  renderSummary();
+}
+
+function renderHoldings() {
+  const tbody = document.getElementById('holdBody');
+  if (!store.h.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:28px">保有銘柄がありません。「＋ 追加」から追加してください。</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = store.h.map(h => {
+    const p = prices[h.sym];
+    const isJPY = h.sym.endsWith('.T');
+    const cur = p?.cur || (isJPY ? 'JPY' : 'USD');
+    const val = (p && h.shares) ? p.price * h.shares : null;
+    const basis = (h.shares && h.cost) ? h.shares * h.cost : null;
+    const pnl = (val != null && basis) ? val - basis : null;
+    const pnlPct = (pnl != null && basis) ? (pnl / basis) * 100 : null;
+    const hasNote = h.reason || h.note;
+    const priceHtml = p
+      ? money(p.price, cur)
+      : '<span class="muted" style="font-size:11px">取得中…</span>';
+
+    return `<tr>
+      <td>
+        <div class="sym">${esc(h.sym)}</div>
+        <div class="sym-name" title="${esc(h.name)}">${esc(h.name)}</div>
+      </td>
+      <td>${priceHtml}</td>
+      <td>${p ? badge(p.pct) : '<span class="muted">--</span>'}</td>
+      <td>${h.shares || '<span class="muted">--</span>'}</td>
+      <td>${h.cost ? money(h.cost, cur) : '<span class="muted">--</span>'}</td>
+      <td>${val != null ? money(val, cur) : '<span class="muted">--</span>'}</td>
+      <td>${pnlCell(pnl, pnlPct, cur)}</td>
+      <td>
+        <div class="act-row">
+          ${hasNote ? `<button class="btn-icon" onclick="showNotes(${h.id},'h')" title="メモを見る">📝</button>` : ''}
+          <button class="btn-icon" onclick="openEdit(${h.id},'h')" title="編集">✏️</button>
+          <button class="btn-icon" onclick="openDel(${h.id},'h')" title="削除">🗑</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderWatchlist() {
+  const el = document.getElementById('watchBody');
+  if (!store.w.length) {
+    el.innerHTML = `<div style="text-align:center;color:var(--muted);padding:28px">ウォッチリストは空です</div>`;
+    return;
+  }
+  el.innerHTML = store.w.map(w => {
+    const p = prices[w.sym];
+    const isJPY = w.sym.endsWith('.T');
+    const cur = p?.cur || (isJPY ? 'JPY' : 'USD');
+    const hasNote = w.reason || w.note;
+    return `<div class="wl-row">
+      <div class="wl-dot"></div>
+      <div class="wl-info">
+        <div class="wl-top">
+          <span class="sym">${esc(w.sym)}</span>
+          <span style="color:var(--muted);font-size:12px">${esc(w.name)}</span>
+          ${p ? `<span style="font-size:13px">${money(p.price, cur)}</span>` : '<span class="muted" style="font-size:11px">取得中…</span>'}
+          ${p ? badge(p.pct) : ''}
+        </div>
+        ${w.note ? `<div class="wl-note">${esc(w.note)}</div>` : ''}
+      </div>
+      <div class="wl-actions">
+        ${hasNote ? `<button class="btn-icon" onclick="showNotes(${w.id},'w')" title="メモ">📝</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="promoteW(${w.id})">買い追加</button>
+        <button class="btn-icon" onclick="openEdit(${w.id},'w')" title="編集">✏️</button>
+        <button class="btn-icon" onclick="openDel(${w.id},'w')" title="削除">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderSummary() {
+  let uVal=0, jVal=0, uBasis=0, jBasis=0, uDay=0, jDay=0;
+  store.h.forEach(h => {
+    const p = prices[h.sym];
+    if (!p || !h.shares) return;
+    const val = p.price * h.shares;
+    const day = (p.price - (p.prev||p.price)) * h.shares;
+    const basis = (h.cost||0) * h.shares;
+    if (p.cur === 'JPY') { jVal+=val; jBasis+=basis; jDay+=day; }
+    else { uVal+=val; uBasis+=basis; uDay+=day; }
+  });
+
+  const uPnl = uBasis ? uVal - uBasis : null;
+  const jPnl = jBasis ? jVal - jBasis : null;
+
+  const set = (id, v) => { document.getElementById(id).innerHTML = v; };
+
+  set('sumUSD', uVal ? `$${N(uVal)}` : '--');
+  set('sumJPY', jVal ? `¥${N(jVal,0)}` : '--');
+  set('sumDayUSD', uDay ? `<span class="${uDay>=0?'up':'dn'}">${uDay>=0?'+':''}$${N(Math.abs(uDay))}</span>` : '--');
+  set('sumDayJPY', jDay ? `<span class="${jDay>=0?'up':'dn'}">${jDay>=0?'+':''}¥${N(Math.abs(jDay),0)}</span>` : '--');
+  set('sumUSDpnl', uPnl!=null
+    ? `<span class="${uPnl>=0?'up':'dn'}">${uPnl>=0?'+':''}$${N(Math.abs(uPnl))} 損益</span>`
+    : '<span style="font-size:11px">取得単価を入力すると損益計算</span>');
+  set('sumJPYpnl', jPnl!=null
+    ? `<span class="${jPnl>=0?'up':'dn'}">${jPnl>=0?'+':''}¥${N(Math.abs(jPnl),0)} 損益</span>`
+    : '<span style="font-size:11px">取得単価を入力すると損益計算</span>');
+}
+
+// ===========================
+// CRUD
+// ===========================
+function openAdd(type) {
+  clearForm();
+  document.getElementById('eType').value = type;
+  document.getElementById('editTitle').textContent = type==='h' ? '保有銘柄を追加' : 'ウォッチリストに追加';
+  document.getElementById('sharesFg').style.display = type==='h' ? '' : 'none';
+  openOverlay('editOverlay');
+  setTimeout(() => document.getElementById('eSym').focus(), 50);
+}
+
+function openEdit(id, type) {
+  const list = type==='h' ? store.h : store.w;
+  const item = list.find(x => x.id===id);
+  if (!item) return;
+  document.getElementById('eId').value = id;
+  document.getElementById('eType').value = type;
+  document.getElementById('editTitle').textContent = type==='h' ? '保有銘柄を編集' : 'ウォッチリストを編集';
+  document.getElementById('eSym').value = item.sym;
+  document.getElementById('eName').value = item.name;
+  document.getElementById('eShares').value = item.shares||'';
+  document.getElementById('eCost').value = item.cost||'';
+  document.getElementById('eReason').value = item.reason||'';
+  document.getElementById('eNote').value = item.note||'';
+  document.getElementById('sharesFg').style.display = type==='h' ? '' : 'none';
+  openOverlay('editOverlay');
+}
+
+function clearForm() {
+  ['eId','eSym','eName','eShares','eCost','eReason','eNote'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+}
+
+function saveItem() {
+  const id     = document.getElementById('eId').value;
+  const type   = document.getElementById('eType').value;
+  const sym    = document.getElementById('eSym').value.trim().toUpperCase();
+  const name   = document.getElementById('eName').value.trim();
+  const shares = parseFloat(document.getElementById('eShares').value)||0;
+  const cost   = parseFloat(document.getElementById('eCost').value)||0;
+  const reason = document.getElementById('eReason').value.trim();
+  const note   = document.getElementById('eNote').value.trim();
+
+  if (!sym)  { toast('ティッカーシンボルを入力してください'); return; }
+  if (!name) { toast('銘柄名を入力してください'); return; }
+
+  const list = type==='h' ? store.h : store.w;
+
+  if (id) {
+    const item = list.find(x => x.id===parseInt(id));
+    if (item) {
+      item.sym=sym; item.name=name; item.reason=reason; item.note=note;
+      if (type==='h') { item.shares=shares; item.cost=cost; }
+    }
+  } else {
+    const newItem = { id: store.nextId++, sym, name, reason, note };
+    if (type==='h') { newItem.shares=shares; newItem.cost=cost; }
+    list.push(newItem);
+    // Fetch price for the new symbol
+    fetchPrices([sym]).then(p => { if(p) { Object.assign(prices, p); render(); } });
+  }
+
+  saveStore();
+  closeOverlay('editOverlay');
+  render();
+  toast('保存しました ✓');
+}
+
+function showNotes(id, type) {
+  const list = type==='h' ? store.h : store.w;
+  const item = list.find(x => x.id===id);
+  if (!item) return;
+  notesTarget = { id, type };
+  document.getElementById('notesTitle').textContent = `${item.sym} — ${item.name}`;
+  let html = '';
+  if (item.reason) html += `<div class="fg"><label>買った理由</label><div class="note-block">${esc(item.reason)}</div></div>`;
+  if (item.note)   html += `<div class="fg"><label>投資メモ</label><div class="note-block">${esc(item.note)}</div></div>`;
+  if (!html)       html = `<p class="muted" style="font-size:13px">メモがありません。「編集」から追加できます。</p>`;
+  document.getElementById('notesBody').innerHTML = html;
+  document.getElementById('notesEditBtn').onclick = () => {
+    closeOverlay('notesOverlay');
+    openEdit(id, type);
+  };
+  openOverlay('notesOverlay');
+}
+
+function openDel(id, type) {
+  const list = type==='h' ? store.h : store.w;
+  const item = list.find(x => x.id===id);
+  if (!item) return;
+  delTarget = { id, type };
+  document.getElementById('delText').textContent =
+    `「${item.name}（${item.sym}）」を削除しますか？この操作は元に戻せません。`;
+  openOverlay('delOverlay');
+}
+
+function doDelete() {
+  if (!delTarget) return;
+  const { id, type } = delTarget;
+  if (type==='h') store.h = store.h.filter(x => x.id!==id);
+  else            store.w = store.w.filter(x => x.id!==id);
+  delete prices[store.h.find(x=>x.id===id)?.sym]; // optional cleanup
+  saveStore();
+  closeOverlay('delOverlay');
+  render();
+  toast('削除しました');
+  delTarget = null;
+}
+
+function promoteW(id) {
+  const item = store.w.find(x => x.id===id);
+  if (!item) return;
+  store.h.push({
+    id: store.nextId++,
+    sym: item.sym, name: item.name,
+    shares: 0, cost: 0,
+    reason: item.reason||'', note: item.note||''
+  });
+  store.w = store.w.filter(x => x.id!==id);
+  saveStore();
+  render();
+  toast(`${item.sym} を保有銘柄に追加しました`);
+}
+
+// ===========================
+// Overlay helpers
+// ===========================
+function openOverlay(id)  { document.getElementById(id).classList.add('open'); }
+function closeOverlay(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target===el) el.classList.remove('open'); });
+});
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape')
+    document.querySelectorAll('.overlay.open').forEach(el => el.classList.remove('open'));
+});
+
+// ===========================
+// Toast
+// ===========================
+let toastTimer;
+function toast(msg, dur=2600) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ===========================
+// Init
+// ===========================
+render();
+refreshAll();
+</script>
+</body>
+</html>
